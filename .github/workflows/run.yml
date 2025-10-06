@@ -1,0 +1,32 @@
+name: Continuous Wallet Generator
+
+on:
+  workflow_dispatch:   # allows manual start
+  schedule:
+    # Runs every 6 hours forever
+    - cron: "0 */6 * * *"
+
+jobs:
+  wallet-generator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6-hour run limit (max allowed)
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install requests ecdsa
+
+      - name: Run mainscript
+        env:
+          MY_JWT: ${{ secrets.PINATA_JWT }}
+        run: |
+          echo "Starting 6-hour wallet generation run..."
+          python mainscript.py || echo "Script ended or crashed"
