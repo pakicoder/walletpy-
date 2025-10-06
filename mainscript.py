@@ -88,7 +88,7 @@ def get_initial_start_time(metadata_file="wallets.txt"):
 def main():
     base_dir = "./mywalletsFolder"
     os.makedirs(base_dir, exist_ok=True)
-    max_workers = 4
+    max_workers = 10
     file_lock = threading.Lock()
     initial_start_time = get_initial_start_time()
     cycle = 0
