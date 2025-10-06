@@ -36,7 +36,7 @@ def write_to_file(entries, filename, file_lock):
             else:
                 f.write(','.join(entries))
 
-def encode_and_upload_to_ipfs(filename, block_number, hour, half, file_lock, delete_local=True):
+def encode_and_upload_to_ipfs(filename, block_number, date_log, hour, half, file_lock, delete_local=True):
     with file_lock:
         try:
             # Create .tar.gz archive
@@ -55,8 +55,8 @@ def encode_and_upload_to_ipfs(filename, block_number, hour, half, file_lock, del
                 result = response.json()
                 cid = result['IpfsHash']
                 with open('filelist.txt', 'a') as fl:
-                    fl.write(f"Hour {hour}, {half.capitalize()} Half: {cid}\n")
-                print(f"Uploaded Hour {hour}, {half.capitalize()} Half to IPFS: ipfs://{cid}")
+                    fl.write(f"{date_log}, Hour {hour}, {half.capitalize()} Half: {cid}\n")
+                print(f"Uploaded {date_log}, Hour {hour}, {half.capitalize()} Half to IPFS: ipfs://{cid}")
             else:
                 print(f"Pinata API error for {tar_filename}: {response.status_code} - {response.text}")
                 return None
@@ -106,27 +106,31 @@ def main():
         elapsed_time = time.time() - initial_start_time
         current_block = int(elapsed_time // seconds_per_block) + 1
         current_time = datetime.fromtimestamp(initial_start_time + elapsed_time)
+        date_str = current_time.strftime("%Y%m%d")  # YYYYMMDD for filename
+        date_log = current_time.strftime("%Y-%m-%d")  # YYYY-MM-DD for filelist
         hour = current_time.strftime("%I").lstrip("0") or "12"  # 1-12 format
         am_pm = current_time.strftime("%p").lower()  # am/pm
         half = "first" if current_block % 2 == 1 else "second"  # First or second half-hour
         hour_number = int(current_time.strftime("%H")) + 1  # For logging (1-24)
-        filename = os.path.join(base_dir, f"wallets_{hour}{am_pm}_{half}.txt")
+        filename = os.path.join(base_dir, f"wallets_{date_str}_{hour}{am_pm}_{half}.txt")
         
         # Upload previous block's file if a new block has started
         if current_block > last_block_uploaded + 1:
             prev_half = "first" if (last_block_uploaded + 1) % 2 == 1 else "second"
             prev_hour_time = datetime.fromtimestamp(initial_start_time + (last_block_uploaded * seconds_per_block))
+            prev_date_str = prev_hour_time.strftime("%Y%m%d")
+            prev_date_log = prev_hour_time.strftime("%Y-%m-%d")
             prev_hour = prev_hour_time.strftime("%I").lstrip("0") or "12"
             prev_am_pm = prev_hour_time.strftime("%p").lower()
             prev_hour_number = int(prev_hour_time.strftime("%H")) + 1
-            prev_filename = os.path.join(base_dir, f"wallets_{prev_hour}{prev_am_pm}_{prev_half}.txt")
+            prev_filename = os.path.join(base_dir, f"wallets_{prev_date_str}_{prev_hour}{prev_am_pm}_{prev_half}.txt")
             if os.path.exists(prev_filename):
-                encode_and_upload_to_ipfs(prev_filename, last_block_uploaded + 1, prev_hour_number, prev_half, file_lock, delete_local)
-                print(f"Pausing for 2 minutes after Hour {prev_hour_number}, {prev_half.capitalize()} Half")
+                encode_and_upload_to_ipfs(prev_filename, last_block_uploaded + 1, prev_date_log, prev_hour_number, prev_half, file_lock, delete_local)
+                print(f"Pausing for 2 minutes after {prev_date_log}, Hour {prev_hour_number}, {prev_half.capitalize()} Half")
                 time.sleep(120)  # 2-minute pause after block upload
             last_block_uploaded = current_block - 1
         
-        print(f"Cycle {cycle} (Hour {hour_number}, {half.capitalize()} Half): Generating...")
+        print(f"Cycle {cycle} ({date_log}, Hour {hour_number}, {half.capitalize()} Half): Generating...")
         gen_start = time.time()
         stop_time = gen_start + 60
         entries = []
@@ -144,8 +148,8 @@ def main():
         
         # Check if 30 days are complete
         if time.time() - initial_start_time >= 2592000:
-            encode_and_upload_to_ipfs(filename, current_block, hour_number, half, file_lock, delete_local)
-            print(f"Pausing for 2 minutes after final Hour {hour_number}, {half.capitalize()} Half")
+            encode_and_upload_to_ipfs(filename, current_block, date_log, hour_number, half, file_lock, delete_local)
+            print(f"Pausing for 2 minutes after final {date_log}, Hour {hour_number}, {half.capitalize()} Half")
             time.sleep(120)  # 2-minute pause after final upload
             break
     
